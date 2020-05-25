@@ -291,8 +291,6 @@ void recv_thread(void *arg) {
 
     free_memory(s_buf, r_buf, myid);
 
-    sleep(1);
-
 }
 
 
