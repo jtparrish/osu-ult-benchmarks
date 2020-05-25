@@ -29,13 +29,6 @@ static int cont_cb(void *data)
     return MPI_SUCCESS;
 }
 
-static int recv_cont_cb(void *data)
-{
-
-    return MPI_SUCCESS;
-}
-
-
 int
 main (int argc, char *argv[])
 {
@@ -70,7 +63,7 @@ main (int argc, char *argv[])
     MPI_CHECK(MPI_Comm_size(MPI_COMM_WORLD, &numprocs));
     MPI_CHECK(MPI_Comm_rank(MPI_COMM_WORLD, &myid));
 
-    MPI_CHECK(MPI_Continue_init(&cont_cb, &cont_req));
+    MPI_CHECK(MPI_Continue_init(&cont_req));
 
     if (0 == myid) {
         switch (po_ret) {
@@ -149,7 +142,7 @@ main (int argc, char *argv[])
                 cont_cb_dir_t dir = CONT_CB_RECV;
                 int flag;
                 MPI_CHECK(MPI_Isend(s_buf, size, MPI_CHAR, 1, 1, MPI_COMM_WORLD, &req));
-                MPI_CHECK(MPI_Continue(&req, &flag, &dir, &reqstat, cont_req));
+                MPI_CHECK(MPI_Continue(&req, &flag, &cont_cb, &dir, &reqstat, cont_req));
                 if (flag) {
                     cont_cb(&dir);
                 } else {
@@ -166,7 +159,7 @@ main (int argc, char *argv[])
                 int flag;
                 cont_cb_dir_t dir = CONT_CB_SEND;
                 MPI_CHECK(MPI_Irecv(r_buf, size, MPI_CHAR, 0, 1, MPI_COMM_WORLD, &req));
-                MPI_CHECK(MPI_Continue(&req, &flag, &dir, &reqstat, cont_req));
+                MPI_CHECK(MPI_Continue(&req, &flag, &cont_cb, &dir, &reqstat, cont_req));
                 if (flag) {
                     cont_cb(&dir);
                 } else {

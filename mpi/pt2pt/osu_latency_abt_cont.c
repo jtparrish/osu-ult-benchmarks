@@ -25,8 +25,6 @@ double t_start = 0, t_end = 0;
 int finished_size;
 int finished_size_sender;
 
-int num_active_ult = 0;
-
 int num_threads_sender=1;
 int num_xstreams_sender=1;
 typedef struct {
@@ -44,7 +42,7 @@ void recv_thread(void *arg);
 static
 void block_thread(thread_state_t *thread_state, MPI_Request *req);
 static
-int unblock_thread(void *data);
+void unblock_thread(void *data);
 static
 void cont_progress(void* data);
 
@@ -270,8 +268,6 @@ void recv_thread(void *arg) {
     char *s_buf, *r_buf;
     thread_state_t *thread_state;
 
-	__sync_fetch_and_add(&num_active_ult, 1);
-
     thread_state = (thread_state_t *)arg;
     val = thread_state->id;
 
@@ -337,9 +333,6 @@ void recv_thread(void *arg) {
 
     free_memory(s_buf, r_buf, myid);
 
-    sleep(1);
-
-	__sync_fetch_and_add(&num_active_ult, -1);
 }
 
 
@@ -351,7 +344,6 @@ void send_thread(void *arg) {
     double t = 0, latency;
     thread_state_t *thread_state = (thread_state_t *)arg;
     char *ret = NULL;
-	__sync_fetch_and_add(&num_active_ult, 1);
 
     val = thread_state->id;
 
@@ -436,7 +428,6 @@ void send_thread(void *arg) {
 
     free_memory(s_buf, r_buf, myid);
 
-	__sync_fetch_and_add(&num_active_ult, -1);
 }
 
 static _Thread_local int completed = 0;
@@ -468,7 +459,7 @@ void block_thread(thread_state_t *thread_state, MPI_Request *req)
     //printf("Unblocked thread %d\n", thread_state->id);
 }
 static
-int unblock_thread(void *data)
+void unblock_thread(void *data)
 {
     thread_state_t *thread_state = (thread_state_t *)data;
     //printf("Unblocking thread %d\n", thread_state->id);
@@ -476,7 +467,6 @@ int unblock_thread(void *data)
     ABT_cond_signal(thread_state->cond);
     ABT_mutex_unlock(thread_state->mtx);
     completed++;
-    return MPI_SUCCESS;
 }
 
 
