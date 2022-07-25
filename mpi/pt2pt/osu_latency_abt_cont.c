@@ -10,6 +10,9 @@
  */
 
 #include <osu_util_mpi.h>
+extern "C" {
+      #include <openmpi/mpiext/mpiext_continue_c.h>
+}
 
 #include <abt.h>
 
