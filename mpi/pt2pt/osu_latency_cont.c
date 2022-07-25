@@ -9,6 +9,7 @@
  * copyright file COPYRIGHT in the top level OMB directory.
  */
 #include <osu_util_mpi.h>
+#include <openmpi/mpiext/mpiext_continue_c.h>
 
 static char *s_buf, *r_buf;
 static int size;
@@ -18,7 +19,7 @@ typedef enum cont_cb_dir_t {
   CONT_CB_RECV
 } cont_cb_dir_t;
 
-static int cont_cb(void *data)
+static void cont_cb(MPI_Status *stat, void *data)
 {
     cont_cb_dir_t *dir = (cont_cb_dir_t *)data;
     if (*dir == CONT_CB_SEND) {
@@ -26,7 +27,7 @@ static int cont_cb(void *data)
     } else {
         MPI_CHECK(MPI_Recv(r_buf, size, MPI_CHAR, 1, 1, MPI_COMM_WORLD, MPI_STATUS_IGNORE));
     }
-    return MPI_SUCCESS;
+    //old return MPI_SUCCESS;
 }
 
 int
@@ -63,7 +64,7 @@ main (int argc, char *argv[])
     MPI_CHECK(MPI_Comm_size(MPI_COMM_WORLD, &numprocs));
     MPI_CHECK(MPI_Comm_rank(MPI_COMM_WORLD, &myid));
 
-    MPI_CHECK(MPI_Continue_init(&cont_req));
+    MPI_CHECK(MPIX_Continue_init(&cont_req, MPI_INFO_NULL));
 
     if (0 == myid) {
         switch (po_ret) {
@@ -140,14 +141,17 @@ main (int argc, char *argv[])
                 }
                 MPI_Request req;
                 cont_cb_dir_t dir = CONT_CB_RECV;
-                int flag;
+                //old int flag;
                 MPI_CHECK(MPI_Isend(s_buf, size, MPI_CHAR, 1, 1, MPI_COMM_WORLD, &req));
-                MPI_CHECK(MPI_Continue(&req, &flag, &cont_cb, &dir, &reqstat, cont_req));
+                MPI_CHECK(MPIX_Continue(&req, &cont_cb, &dir, &reqstat, cont_req));
+                /*old
                 if (flag) {
                     cont_cb(&dir);
                 } else {
                     MPI_CHECK(MPI_Wait(&cont_req, MPI_STATUS_IGNORE));
                 }
+                */
+                MPI_CHECK(MPI_Wait(&cont_req, MPI_STATUS_IGNORE));
             }
 
             t_end = MPI_Wtime();
@@ -156,15 +160,18 @@ main (int argc, char *argv[])
         else if(myid == 1) {
             for(i = 0; i < options.iterations + options.skip; i++) {
                 MPI_Request req;
-                int flag;
+                //old int flag;
                 cont_cb_dir_t dir = CONT_CB_SEND;
                 MPI_CHECK(MPI_Irecv(r_buf, size, MPI_CHAR, 0, 1, MPI_COMM_WORLD, &req));
-                MPI_CHECK(MPI_Continue(&req, &flag, &cont_cb, &dir, &reqstat, cont_req));
+                MPI_CHECK(MPIX_Continue(&req, &cont_cb, &dir, &reqstat, cont_req));
+                /*old
                 if (flag) {
                     cont_cb(&dir);
                 } else {
                     MPI_CHECK(MPI_Wait(&cont_req, MPI_STATUS_IGNORE));
                 }
+                */
+                MPI_CHECK(MPI_Wait(&cont_req, MPI_STATUS_IGNORE));
             }
         }
 
