@@ -256,7 +256,9 @@ struct options_t {
     int num_threads;
     int sender_thread;
     int num_xstreams;
+    int num_sheps;
     int sender_xstreams;
+    int sender_sheps;
     char managedSend;
     char managedRecv;
     enum WINDOW win;
