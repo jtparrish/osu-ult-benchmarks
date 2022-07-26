@@ -10,9 +10,7 @@
  */
 
 #include <osu_util_mpi.h>
-extern "C" {
-      #include <openmpi/mpiext/mpiext_continue_c.h>
-}
+#include <openmpi/mpiext/mpiext_continue_c.h>
 
 #include <abt.h>
 
@@ -45,7 +43,7 @@ void recv_thread(void *arg);
 static
 void block_thread(thread_state_t *thread_state, MPI_Request *req);
 static
-void unblock_thread(void *data);
+void unblock_thread(MPI_Status *stat, void *data);
 static
 void cont_progress(void* data);
 
@@ -81,7 +79,7 @@ int main(int argc, char *argv[])
 
     err = MPI_Init_thread(&argc, &argv, MPI_THREAD_MULTIPLE, &provided);
 
-    MPI_Continue_init(&cont_req);
+    MPIX_Continue_init(&cont_req, MPI_INFO_NULL);
 
     ABT_init(argc, argv);
     ABT_xstream_self(&es);
@@ -450,19 +448,24 @@ void cont_progress(void* data)
 static
 void block_thread(thread_state_t *thread_state, MPI_Request *req)
 {
-    int flag;
+    //old int flag;
     ABT_mutex_lock(thread_state->mtx);
     MPI_Request _req = *req; // DEBUG
-    MPI_Continue(&_req, &flag, &unblock_thread, thread_state, MPI_STATUS_IGNORE, cont_req);
+    MPIX_Continue(&_req, &unblock_thread, thread_state, MPI_STATUS_IGNORE, cont_req);
     //printf("Blocking thread %d, flag %d\n", thread_state->id, flag);
+
+    /*old
     if (!flag) {
         ABT_cond_wait(thread_state->cond, thread_state->mtx);
     }
+    */
+    ABT_cond_wait(thread_state->cond, thread_state->mtx);
+    
     ABT_mutex_unlock(thread_state->mtx);
     //printf("Unblocked thread %d\n", thread_state->id);
 }
 static
-void unblock_thread(void *data)
+void unblock_thread(MPI_Status *stat, void *data)
 {
     thread_state_t *thread_state = (thread_state_t *)data;
     //printf("Unblocking thread %d\n", thread_state->id);
