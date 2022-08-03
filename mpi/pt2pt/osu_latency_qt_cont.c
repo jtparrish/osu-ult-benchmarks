@@ -79,7 +79,7 @@ int main(int argc, char *argv[])
     //abt ABT_thread prog_thread;
 
     options.bench = PT2PT;
-    options.subtype = LAT_ABT;
+    options.subtype = LAT_QT;
 
     set_header(HEADER);
     set_benchmark_name("osu_latency_mt");

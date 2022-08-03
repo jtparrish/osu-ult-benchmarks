@@ -199,6 +199,7 @@ enum test_subtype {
     LAT,
     LAT_MT,
     LAT_ABT,
+    LAT_QT,
     NBC,
 };
 

@@ -469,6 +469,8 @@ int process_options (int argc, char *argv[])
                 optstring = "+:x:i:t:m:d:hv";
             } else if (options.subtype == LAT_ABT) { 
                 optstring = "+:x:i:t:e:m:d:hv";
+            } else if (options.subtype == LAT_QT) { 
+                optstring = "+:x:i:t:S:m:d:hv";
             } else if (options.subtype == BW) {
                 optstring = "+:x:i:t:m:d:W:hv";
             } else {
@@ -479,6 +481,8 @@ int process_options (int argc, char *argv[])
                 optstring = "+:hvm:x:i:t:";
             } else if (options.subtype == LAT_ABT) { 
                 optstring = "+:x:i:t:e:m:d:hv";
+            } else if (options.subtype == LAT_QT) { 
+                optstring = "+:x:i:t:S:m:d:hv";
             } else if (options.subtype == BW) {
                 optstring = "+:hvm:x:i:t:W:";
             } else {
@@ -537,6 +541,9 @@ int process_options (int argc, char *argv[])
             options.iterations_large = BW_LOOP_LARGE;
             options.skip_large = BW_SKIP_LARGE;
             break;
+        case LAT_QT:
+            options.num_sheps = 1;
+            options.sender_sheps = -1;
         case LAT_ABT:
             options.num_xstreams = 1;
             options.num_sheps = 1;
