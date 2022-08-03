@@ -11,26 +11,30 @@
 
 #include <osu_util_mpi.h>
 
-#include <abt.h>
+#include <qthread.h>
+#include <qthread/qthread.h>
+#include <qthread/barrier.h>
 
 //abt ABT_mutex finished_size_mutex;
 aligned_t finished_size_mutex;
 //abt ABT_cond  finished_size_cond;
-qt_feb_barrier_t finished_size_barrier;
+qt_barrier_t *finished_size_barrier;
 //abt ABT_mutex finished_size_sender_mutex;
 aligned_t finished_size_sender_mutex;
 //abt ABT_cond  finished_size_sender_cond;
-qt_feb_barrier_t finished_size_sender_barrier;
+qt_barrier_t *finished_size_sender_barrier;
 
 //abt ABT_barrier sender_barrier;
-qt_feb_barrier_t *sender_barrier;
+qt_barrier_t *sender_barrier;
 
-qt_feb_barrier_t *completion_barrier;
+qt_barrier_t *completion_barrier;
 
 double t_start = 0, t_end = 0;
 
 //COMP: change to aligned_t
+//abt int finished_size;
 aligned_t finished_size;
+//abt int finished_size_sender;
 aligned_t finished_size_sender;
 
 int num_threads_sender=1;
@@ -40,8 +44,8 @@ typedef struct thread_tag  {
         int id;
 } thread_tag_t;
 
-void send_thread(void *arg);
-void recv_thread(void *arg);
+aligned_t send_thread(void *arg);
+aligned_t recv_thread(void *arg);
 
 int main(int argc, char *argv[])
 {
@@ -72,12 +76,16 @@ int main(int argc, char *argv[])
 
     err = MPI_Init_thread(&argc, &argv, MPI_THREAD_MULTIPLE, &provided);
 
-    ABT_init(argc, argv);
+    //abt ABT_init(argc, argv);
     //COMP: make sure these are initialized before using them in init
-    if(options.sender_thread!=-1) {
-        num_threads_sender=options.sender_thread;
+    // if(options.sender_thread!=-1) {
+    //     num_threads_sender=options.sender_thread;
+    // }
+    if(options.sender_sheps!=-1) {
+        num_sheps_sender=options.sender_sheps;
     }
-    qthread_init( (0 == myid) ? num_sender_sheps : options.num_sheps); 
+    MPI_CHECK(MPI_Comm_rank(MPI_COMM_WORLD, &myid));
+    qthread_init( (0 == myid) ? num_sheps_sender : options.num_sheps); 
     
     //abt ABT_xstream_self(&es);
     shep = qthread_shep();
@@ -93,10 +101,10 @@ int main(int argc, char *argv[])
 
     //abt ABT_mutex_create(&finished_size_mutex);
     //abt ABT_cond_create(&finished_size_cond);
-    finished_size_barrier = qthread_feb_barrier_create(num_threads);
+    finished_size_barrier = qt_barrier_create(options.num_threads, REGION_BARRIER);
     //abt ABT_mutex_create(&finished_size_sender_mutex);
     //abt ABT_cond_create(&finished_size_sender_cond);
-    finished_size_sender_barrier = qthread_feb_barrier_create(num_threads_sender);
+    finished_size_sender_barrier = qt_barrier_create(num_threads_sender, REGION_BARRIER);
 
     if(err != MPI_SUCCESS) {
         MPI_CHECK(MPI_Abort(MPI_COMM_WORLD, 1));
@@ -176,18 +184,21 @@ int main(int argc, char *argv[])
         num_threads_sender=options.sender_thread;
     }
 
+    /*abt
     if(options.sender_xstreams!=-1) {
         num_xstreams_sender=options.sender_xstreams;
     }
+    */
    
     //abt ABT_barrier_create(num_threads_sender, &sender_barrier);
-    sender_barrier = qthread_feb_barrier_create(num_threads_sender);
+    sender_barrier = qt_barrier_create(num_threads_sender, REGION_BARRIER);
 
     if(myid == 0) {
-        completion_barrier = qthread_feb_barrier_create(num_threads_sender);
+        completion_barrier = qt_barrier_create(num_threads_sender + 1, REGION_BARRIER);
          
         printf("# Number of Sender threads: %d \n# Number of Receiver threads: %d\n",num_threads_sender,options.num_threads );
-        printf("# Number of Sender xstreams: %d \n# Number of Receiver xstreams: %d\n",num_xstreams_sender,options.num_xstreams );
+        //abt printf("# Number of Sender xstreams: %d \n# Number of Receiver xstreams: %d\n",num_xstreams_sender,options.num_xstreams );
+        printf("# Number of Sender sheps: %d \n# Number of Receiver sheps: %d\n",num_sheps_sender,options.num_sheps );
     
         print_header(myid, LAT_MT);
         fprintf(stdout, "%-*s%*s\n", 10, "# Size", FIELD_WIDTH, "Latency (us)");
@@ -202,7 +213,8 @@ int main(int argc, char *argv[])
         }
         */ 
 
-        int es_idx = 0;
+        //abt int es_idx = 0;
+        int shep_idx = 0;
         for(i=0;i<num_threads_sender;i++) {
             tags[i].id = i;
             //COMP: find the qthreads equivalent for this
@@ -215,7 +227,8 @@ int main(int argc, char *argv[])
         //COMP: find the qthreads equivalent for this
         //IDEA: sincs | barrier
         //abt ABT_thread_join_many(num_threads_sender, sr_threads);
-        qthread_feb_barrier_enter(completion_barrier);
+        qt_barrier_enter(completion_barrier);
+        printf("Send Threads Joined\n");
 
         /*abt
         printf("Cancelling xstreams\n");
@@ -238,7 +251,7 @@ int main(int argc, char *argv[])
     }
 
     else {
-        completion_barrier=qthread_feb_barrier_create(num_threads);
+        completion_barrier=qt_barrier_create(options.num_threads + 1, REGION_BARRIER);
         /*
         for (i = 1; i < options.num_xstreams; i++) {
             //COMP: find the qthreads equivalent for this
@@ -246,19 +259,22 @@ int main(int argc, char *argv[])
             ABT_xstream_create(ABT_SCHED_NULL, &sr_xstreams[i]);
         }
         */
-        int es_idx = 0;
+        //abt int es_idx = 0;
+        int shep_idx = 0;
         for(i = 0; i < options.num_threads; i++) {
             tags[i].id = i;
             //COMP: find the qthreads equivalent for this
             //abt ABT_xstream es = sr_xstreams[(es_idx++)%(options.num_xstreams)];
             qthread_shepherd_id_t shep = (shep_idx++)%(options.num_sheps);
             //abt ABT_thread_create_on_xstream(es, recv_thread, &tags[i], attr, &sr_threads[i]);
-            qthread_fork_to(send_thread, &tags[i], NULL, shep);
+            qthread_fork_to(recv_thread, &tags[i], NULL, shep);
         }
         //COMP: find the qthreads equivalent for this
         //IDEA: sincs | barrier
         //abt ABT_thread_join_many(options.num_threads, sr_threads);
-        qthread_feb_barrier_enter(completion_barrier);
+        printf("Waiting for all recv threads to complete\n");
+        qt_barrier_enter(completion_barrier);
+        printf("Recv Threads Joined\n");
 
         /*abt
         for (i = 1; i < options.num_xstreams; i++) {
@@ -285,7 +301,8 @@ int main(int argc, char *argv[])
     return EXIT_SUCCESS;
 }
 
-void recv_thread(void *arg) {
+aligned_t recv_thread(void *arg) {
+    printf("recv thread\n");
     unsigned long align_size = sysconf(_SC_PAGESIZE);
     int size, i, val;
     int iter;
@@ -306,7 +323,7 @@ void recv_thread(void *arg) {
     if (allocate_memory_pt2pt(&s_buf, &r_buf, myid)) {
         /* Error allocating memory */
         fprintf(stderr, "Error allocating memory on Rank %d, thread ID %d\n", myid, thread_id->id);
-        return;
+        return 1;
     }
 
     for(size = options.min_message_size, iter = 0; size <= options.max_message_size; size = (size ? size * 2 : 1)) {
@@ -339,17 +356,13 @@ void recv_thread(void *arg) {
         */
 
         //COMP: find a way to have only the last arriving thread perform the barrier
-        if (qthread_incr(&finished_size, 1) == num_threads) {
+        if (qthread_incr(&finished_size, 1) == options.num_threads) {
             MPI_CHECK(MPI_Barrier(MPI_COMM_WORLD));
-            qthread_writeF(&finished_size, 1);
+            const aligned_t one = 1;
+            qthread_writeF(&finished_size, &one);
         } 
 
-        qthread_feb_barrier_enter(finished_size_bar);
-
-        if(size > LARGE_MESSAGE_SIZE) {
-            options.iterations = options.iterations_large;
-            options.skip = options.skip_large;
-        }  
+        qt_barrier_enter(finished_size_barrier);
 
         if(size > LARGE_MESSAGE_SIZE) {
             options.iterations = options.iterations_large;
@@ -379,13 +392,16 @@ void recv_thread(void *arg) {
     free_memory(s_buf, r_buf, myid);
 
     //COMP: barrier wait
-    qthread_feb_barrier_enter(completion_barrier);
+    printf("Recv thread joining barrier\n");
+    qt_barrier_enter(completion_barrier);
 
+    return 0;
 
 }
 
 
-void send_thread(void *arg) {
+aligned_t send_thread(void *arg) {
+    printf("send thread\n");
     unsigned long align_size = sysconf(_SC_PAGESIZE);
     int size, i, val, iter;
     int myid;
@@ -406,7 +422,7 @@ void send_thread(void *arg) {
     if (allocate_memory_pt2pt(&s_buf, &r_buf, myid)) {
         /* Error allocating memory */
         fprintf(stderr, "Error allocating memory on Rank %d, thread ID %d\n", myid, thread_id->id);
-        return;
+        return 1; 
     }
 
     for(size = options.min_message_size, iter = 0; size <= options.max_message_size; size = (size ? size * 2 : 1)) {
@@ -442,10 +458,13 @@ void send_thread(void *arg) {
         //COMP: find a way to have only the last arriving thread perform the barrier
         if (qthread_incr(&finished_size_sender, 1) == num_threads_sender) {
             MPI_CHECK(MPI_Barrier(MPI_COMM_WORLD));
-            qthread_writeF(&finished_size_sender, 1);
+            const aligned_t one = 1;
+            qthread_writeF(&finished_size_sender, &one);
         } 
 
-        qthread_feb_barrier_enter(finished_size_sender_bar);
+        printf("Thread entering finished_size_sender_barrier\n");
+        qt_barrier_enter(finished_size_sender_barrier);
+        printf("Thread exiting finished_size_sender_barrier\n");
 
         if(size > LARGE_MESSAGE_SIZE) {
             options.iterations = options.iterations_large;
@@ -453,16 +472,24 @@ void send_thread(void *arg) {
         }  
 
         /* touch the data */
+        printf("set_buffer_pt2pt start\n");
         set_buffer_pt2pt(s_buf, myid, options.accel, 'a', size);
         set_buffer_pt2pt(r_buf, myid, options.accel, 'b', size);
+        printf("set_buffer_pt2pt end\n");
 
         int flag_print=0;
+        printf("iterations: %zu\n", options.iterations);
         for(i = val; i < options.iterations + options.skip; i+=num_threads_sender) {
             if(i == options.skip) {
                 t_start = MPI_Wtime();
                 flag_print =1;
             }
 
+            if (i % 1000 == 0) {
+                printf("iteration: %d\n", i);
+            }
+
+            //printf("Sender comm start\n");
             if(options.sender_thread>1) {
                 
                 
@@ -477,9 +504,13 @@ void send_thread(void *arg) {
                         &reqstat[val]));
             
             }
+            //printf("Sender comm end\n");
         }
 
-        ABT_barrier_wait(sender_barrier);
+        //abt ABT_barrier_wait(sender_barrier);
+        printf("Thread entering sender_barrier\n");
+        qt_barrier_enter(sender_barrier);
+        printf("Thread exiting sender_barrier\n");
         if(flag_print==1) {
             t_end = MPI_Wtime();
             t = t_end - t_start;
@@ -495,7 +526,10 @@ void send_thread(void *arg) {
     free_memory(s_buf, r_buf, myid);
     
     //COMP: barrier wait
-    qthread_feb_barrier_enter(completion_barrier);
+    printf("Send thread joining barrier\n");
+    qt_barrier_enter(completion_barrier);
+
+    return 0;
 
 }
 

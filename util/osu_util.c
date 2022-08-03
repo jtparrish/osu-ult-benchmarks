@@ -289,6 +289,61 @@ set_xstreams (char *val_str)
     return retval;
 }
 
+static int
+set_receiver_sheps (int value){
+    if (MIN_NUM_THREADS > value || value>=MAX_NUM_THREADS) {
+        return -1;
+    }
+
+    options.num_xstreams = value;
+
+    return 0;
+
+}
+
+static int
+set_sender_sheps (int value){
+    if (MIN_NUM_THREADS > value || value>=MAX_NUM_THREADS) {
+        return -1;
+    }
+
+    options.sender_xstreams = value;
+
+    return 0;
+
+}
+
+static int
+set_sheps (char *val_str)
+{
+    int retval = -1;
+    int i, count = 0;
+    char *val1, *val2;
+
+    for (i=0; val_str[i]; i++) {
+        if (val_str[i] == ':')
+            count++;
+    }
+
+    if (!count) {
+        retval = set_receiver_sheps(atoi(val_str));
+        options.sender_xstreams=-1;
+    } else if (count == 1) {
+        val1 = strtok(val_str, ":");
+        val2 = strtok(NULL, ":");
+
+        if (val1 && val2) {
+            retval = set_sender_sheps(atoi(val1));
+            if(retval==-1){
+                return retval;
+            }
+            retval = set_receiver_sheps(atoi(val2));
+        } 
+        
+    }
+
+    return retval;
+}
 
 static int set_num_warmup (int value)
 {
@@ -484,7 +539,9 @@ int process_options (int argc, char *argv[])
             break;
         case LAT_ABT:
             options.num_xstreams = 1;
+            options.num_sheps = 1;
             options.sender_xstreams = -1;
+            options.sender_sheps = -1;
         case LAT_MT:
             options.num_threads = DEF_NUM_THREADS;
             options.min_message_size = 0;
@@ -547,6 +604,12 @@ int process_options (int argc, char *argv[])
             case 'e':
                 if(set_xstreams(optarg)){
                     bad_usage.message = "Invalid Number of Execution Streams";
+                    bad_usage.optarg = optarg;
+                }
+                break;
+            case 'S':
+                if(set_sheps(optarg)){
+                    bad_usage.message = "Invalid Number of shepards";
                     bad_usage.optarg = optarg;
                 }
                 break;
