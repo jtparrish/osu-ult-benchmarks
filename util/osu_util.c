@@ -295,7 +295,7 @@ set_receiver_sheps (int value){
         return -1;
     }
 
-    options.num_xstreams = value;
+    options.num_sheps = value;
 
     return 0;
 
@@ -307,7 +307,7 @@ set_sender_sheps (int value){
         return -1;
     }
 
-    options.sender_xstreams = value;
+    options.sender_sheps = value;
 
     return 0;
 
