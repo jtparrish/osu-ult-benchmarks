@@ -7,7 +7,7 @@ SUFFIXES = .cu .cpp
 	$(NVCC) $(NVCFLAGS) $(INCLUDES) $(CPPFLAGS) --output-file $@ $<
 
 pt2ptdir = $(pkglibexecdir)/mpi/pt2pt
-pt2pt_PROGRAMS = osu_bibw osu_bw osu_latency osu_latency_nb osu_latency_cont osu_mbw_mr osu_multi_lat osu_latency_abt osu_latency_abt_cont osu_latency_qt osu_latency_qt_cont
+pt2pt_PROGRAMS = osu_bibw osu_bw osu_latency osu_latency_nb osu_latency_cont osu_mbw_mr osu_multi_lat osu_latency_abt osu_latency_abt_cont osu_latency_qt osu_latency_qt_cont osu_latency_omp osu_latency_omp_cont
 
 AM_CFLAGS = -I${top_srcdir}/util
 
@@ -32,6 +32,8 @@ osu_latency_abt_SOURCES = osu_latency_abt.c $(UTILITIES)
 osu_latency_abt_cont_SOURCES = osu_latency_abt_cont.c $(UTILITIES)
 osu_latency_qt_SOURCES = osu_latency_qt.c $(UTILITIES)
 osu_latency_qt_cont_SOURCES = osu_latency_qt_cont.c $(UTILITIES)
+osu_latency_omp_SOURCES = osu_latency_omp.c $(UTILITIES)
+osu_latency_omp_cont_SOURCES = osu_latency_omp_cont.c $(UTILITIES)
 
 if MPI2_LIBRARY
     pt2pt_PROGRAMS += osu_latency_mt 
